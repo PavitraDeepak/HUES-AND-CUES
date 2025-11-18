@@ -1,4 +1,4 @@
-[00:00:01.563] Server  LOG     🚀 Server running on http://localhost:3000
-[00:00:01.745] Server  LOG     ✅ MongoDB connected
-[00:00:12.962] Server  LOG      ○ Compiling / ...
-[00:02:21.968] Server  LOG      ✓ Compiled in 103ms
+[00:00:02.121] Server  LOG     🚀 Server running on http://localhost:3000
+[00:00:02.285] Server  LOG     ✅ MongoDB connected
+[00:00:09.141] Server  LOG      ○ Compiling / ...
+[00:00:35.571] Browser ERROR   ❌ Connection error: timeout
