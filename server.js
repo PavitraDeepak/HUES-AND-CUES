@@ -14,7 +14,7 @@ const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
 // Import game utilities
-const { sampleFour, calculateDistance, scoreForDistance, COLORS } = require('./lib/colors.ts');
+const { sampleFour, calculateDistance, scoreForDistance, COLORS } = require('./lib/colors.js');
 
 // In-memory rooms (can be persisted to MongoDB)
 const rooms = {};
