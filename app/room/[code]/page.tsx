@@ -56,6 +56,8 @@ export default function RoomPage({ params }: { params: Promise<{ code: string }>
   const [clueGiverName, setClueGiverName] = useState<string>('');
   const [hasGuessed, setHasGuessed] = useState(false);
   const [myGuessIndex, setMyGuessIndex] = useState<number | undefined>();
+  const [targetColor, setTargetColor] = useState<string | undefined>();
+  const [targetIndex, setTargetIndex] = useState<number | undefined>();
   
   // Round results modal
   const [showResults, setShowResults] = useState(false);
@@ -71,6 +73,51 @@ export default function RoomPage({ params }: { params: Promise<{ code: string }>
       setUserId(storedUserId);
     }
   }, []);
+
+  // Join room on mount
+  useEffect(() => {
+    if (!socket || !isConnected || !userId) return;
+
+    // Check if user just created this room (skip join as they're already in)
+    const justCreated = localStorage.getItem('justCreated');
+    if (justCreated === 'true') {
+      localStorage.removeItem('justCreated');
+      
+      // Just request the room state since we're already in the room
+      socket.emit('get_room_state', { code }, (response: any) => {
+        if (response.success) {
+          setRoomState(response.roomState);
+          if (response.gameState) {
+            setGameState(response.gameState);
+            setClueGiverName(response.clueGiver);
+          }
+        } else {
+          console.error('Failed to get room state:', response.error);
+          alert(response.error);
+          router.push('/');
+        }
+      });
+      return;
+    }
+
+    const name = localStorage.getItem('playerName') || 'Player';
+    
+    // Small delay to ensure socket is fully ready
+    const timer = setTimeout(() => {
+      socket.emit('join_room', { code, name, userId }, (response: any) => {
+        if (!response.success) {
+          console.error('Failed to join room:', response.error);
+          alert(response.error);
+          router.push('/');
+        }
+      });
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+      // Don't leave room on unmount, only on explicit leave
+    };
+  }, [socket, isConnected, code, userId, router]);
 
   useEffect(() => {
     if (!socket) return;
@@ -91,7 +138,15 @@ export default function RoomPage({ params }: { params: Promise<{ code: string }>
       setClueGiverName(data.clueGiver);
       setHasGuessed(false);
       setMyGuessIndex(undefined);
+      setTargetColor(undefined);
+      setTargetIndex(undefined);
       setShowResults(false);
+    });
+
+    // Target revealed (only for clue giver)
+    socket.on('target_revealed', (data: { targetIndex: number; targetColor: string }) => {
+      setTargetIndex(data.targetIndex);
+      setTargetColor(data.targetColor);
     });
 
     // Clue given
@@ -123,6 +178,8 @@ export default function RoomPage({ params }: { params: Promise<{ code: string }>
       setClueGiverName(data.clueGiver);
       setHasGuessed(false);
       setMyGuessIndex(undefined);
+      setTargetColor(undefined);
+      setTargetIndex(undefined);
       setShowResults(false);
     });
 
@@ -143,6 +200,8 @@ export default function RoomPage({ params }: { params: Promise<{ code: string }>
       setClueGiverName(data.clueGiver);
       setHasGuessed(false);
       setMyGuessIndex(undefined);
+      setTargetColor(undefined);
+      setTargetIndex(undefined);
       setShowResults(false);
     });
 
@@ -157,6 +216,7 @@ export default function RoomPage({ params }: { params: Promise<{ code: string }>
       socket.off('room_state');
       socket.off('chat_message');
       socket.off('game_started');
+      socket.off('target_revealed');
       socket.off('clue_given');
       socket.off('guess_placed');
       socket.off('round_results');
@@ -231,8 +291,9 @@ export default function RoomPage({ params }: { params: Promise<{ code: string }>
 
   const handleLeaveRoom = () => {
     if (!socket || !roomState) return;
-    socket.emit('leave_room', { code: roomState.code });
-    router.push('/');
+    socket.emit('leave_room', { code: roomState.code }, (response: any) => {
+      router.push('/');
+    });
   };
 
   const handleBackToLobby = () => {
@@ -350,6 +411,8 @@ export default function RoomPage({ params }: { params: Promise<{ code: string }>
                 guessDeadline={gameState.guessDeadline}
                 hasGuessed={hasGuessed}
                 myGuessIndex={myGuessIndex}
+                targetColor={targetColor}
+                targetIndex={targetIndex}
               />
             )}
           </div>

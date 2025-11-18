@@ -48,6 +48,7 @@ export default function Home() {
         setLoading(false);
         if (response.success) {
           localStorage.setItem('userId', response.userId);
+          localStorage.setItem('justCreated', 'true');
           router.push(`/room/${response.code}`);
         } else {
           setError(response.error || 'Failed to create room');

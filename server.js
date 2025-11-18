@@ -8,7 +8,7 @@ const mongoose = require('mongoose');
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3005;
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
@@ -90,34 +90,76 @@ app.prepare().then(() => {
           return callback({ success: false, error: 'Room not found' });
         }
 
-        if (room.players.length >= room.settings.maxPlayers) {
-          return callback({ success: false, error: 'Room is full' });
-        }
-
         // Check if player is reconnecting
         const existingPlayer = room.players.find((p) => p.userId === userId);
         if (existingPlayer) {
+          // Reconnecting player
           existingPlayer.socketId = socket.id;
           existingPlayer.id = socket.id;
+          existingPlayer.disconnected = false;
+          delete existingPlayer.disconnectedAt;
+          
+          socket.join(code);
+          callback({ success: true, userId });
+          
+          io.to(code).emit('room_state', formatRoomState(room));
+          io.to(code).emit('chat_message', {
+            type: 'system',
+            message: `${name} reconnected`,
+            timestamp: new Date(),
+          });
+          
+          // If game is active, send game state
+          if (room.currentGame) {
+            socket.emit('game_started', {
+              gameState: formatGameState(room.currentGame),
+              clueGiver: room.players[room.currentGame.turnIndex].name,
+            });
+            
+            // If reconnecting player is the clue giver, send target info
+            if (room.currentGame.turnIndex === room.players.findIndex(p => p.id === socket.id)) {
+              socket.emit('target_revealed', {
+                targetIndex: room.currentGame.card.targetIndex,
+                targetColor: COLORS[room.currentGame.card.targetIndex],
+              });
+            }
+            
+            if (room.currentGame.currentClue) {
+              socket.emit('clue_given', {
+                clue: room.currentGame.currentClue,
+                phase: room.currentGame.currentPhase,
+                clueGiver: room.players[room.currentGame.turnIndex].name,
+                deadline: room.currentGame.guessDeadline,
+              });
+            }
+          }
+          
+          console.log(`🔄 ${name} reconnected to room ${code}`);
         } else {
+          // New player joining
+          if (room.players.length >= room.settings.maxPlayers) {
+            return callback({ success: false, error: 'Room is full' });
+          }
+
+          const newUserId = userId || generateUserId();
           room.players.push({
             id: socket.id,
-            userId: userId || generateUserId(),
+            userId: newUserId,
             name,
             ready: false,
             score: 0,
           });
-        }
 
-        socket.join(code);
-        callback({ success: true, userId: userId || generateUserId() });
-        io.to(code).emit('room_state', formatRoomState(room));
-        io.to(code).emit('chat_message', {
-          type: 'system',
-          message: `${name} joined the room`,
-          timestamp: new Date(),
-        });
-        console.log(`👤 ${name} joined room ${code}`);
+          socket.join(code);
+          callback({ success: true, userId: newUserId });
+          io.to(code).emit('room_state', formatRoomState(room));
+          io.to(code).emit('chat_message', {
+            type: 'system',
+            message: `${name} joined the room`,
+            timestamp: new Date(),
+          });
+          console.log(`👤 ${name} joined room ${code}`);
+        }
       } catch (error) {
         callback({ success: false, error: error.message });
       }
@@ -134,6 +176,28 @@ app.prepare().then(() => {
           player.ready = ready;
           io.to(code).emit('room_state', formatRoomState(room));
           callback({ success: true });
+        }
+      } catch (error) {
+        callback({ success: false, error: error.message });
+      }
+    });
+
+    // GET ROOM STATE (for when page loads)
+    socket.on('get_room_state', ({ code }, callback) => {
+      try {
+        const room = rooms[code];
+        if (!room) return callback({ success: false, error: 'Room not found' });
+
+        callback({ success: true, roomState: formatRoomState(room) });
+
+        // Also send game state if active
+        if (room.currentGame) {
+          callback({
+            success: true,
+            roomState: formatRoomState(room),
+            gameState: formatGameState(room.currentGame),
+            clueGiver: room.players[room.currentGame.turnIndex].name,
+          });
         }
       } catch (error) {
         callback({ success: false, error: error.message });
@@ -174,10 +238,20 @@ app.prepare().then(() => {
         // Reset scores
         room.players.forEach((p) => (p.score = 0));
 
+        const clueGiverId = room.players[0].id;
+        
+        // Send game state to all players
         io.to(code).emit('game_started', {
           gameState: formatGameState(room.currentGame),
           clueGiver: room.players[0].name,
         });
+        
+        // Send target info ONLY to clue giver
+        io.to(clueGiverId).emit('target_revealed', {
+          targetIndex: room.currentGame.card.targetIndex,
+          targetColor: COLORS[room.currentGame.card.targetIndex],
+        });
+        
         io.to(code).emit('room_state', formatRoomState(room));
         callback({ success: true });
         console.log(`🎯 Game started in room ${code}`);
@@ -321,20 +395,40 @@ app.prepare().then(() => {
       }
     });
 
-    // LEAVE ROOM
+    // LEAVE ROOM (explicit leave)
     socket.on('leave_room', ({ code }, callback) => {
-      handlePlayerLeave(socket, code);
+      handlePlayerLeave(socket, code, true);
       if (callback) callback({ success: true });
     });
 
-    // DISCONNECT
+    // DISCONNECT (implicit leave - mark as disconnected but don't remove immediately)
     socket.on('disconnect', () => {
       console.log(`🔌 User disconnected: ${socket.id}`);
-      // Find and handle all rooms this socket was in
+      
+      // Mark player as disconnected but keep in room for reconnection
       for (const code in rooms) {
         const room = rooms[code];
-        if (room.players.some((p) => p.id === socket.id)) {
-          handlePlayerLeave(socket, code);
+        const player = room.players.find((p) => p.id === socket.id);
+        if (player) {
+          player.disconnected = true;
+          player.disconnectedAt = Date.now();
+          
+          io.to(code).emit('chat_message', {
+            type: 'system',
+            message: `${player.name} disconnected`,
+            timestamp: new Date(),
+          });
+          
+          // Only remove after 60 seconds if still disconnected
+          setTimeout(() => {
+            const currentRoom = rooms[code];
+            if (currentRoom) {
+              const currentPlayer = currentRoom.players.find((p) => p.id === socket.id);
+              if (currentPlayer && currentPlayer.disconnected) {
+                handlePlayerLeave(socket, code, false);
+              }
+            }
+          }, 60000);
         }
       }
     });
@@ -458,10 +552,18 @@ app.prepare().then(() => {
       game.currentClue = null;
       game.guesses = {};
 
+      const clueGiverId = room.players[game.turnIndex].id;
+
       io.to(code).emit('phase_changed', {
         round: game.currentRound,
         phase: 2,
         clueGiver: room.players[game.turnIndex].name,
+      });
+      
+      // Send target to clue giver
+      io.to(clueGiverId).emit('target_revealed', {
+        targetIndex: game.card.targetIndex,
+        targetColor: COLORS[game.card.targetIndex],
       });
 
       console.log(`➡️ Advanced to phase 2 of round ${game.currentRound} in ${code}`);
@@ -486,10 +588,18 @@ app.prepare().then(() => {
         game.currentClue = null;
         game.guesses = {};
 
+        const clueGiverId = room.players[game.turnIndex].id;
+
         io.to(code).emit('new_round', {
           round: game.currentRound,
           cardColors: game.card.colors,
           clueGiver: room.players[game.turnIndex].name,
+        });
+        
+        // Send target to new clue giver
+        io.to(clueGiverId).emit('target_revealed', {
+          targetIndex: game.card.targetIndex,
+          targetColor: COLORS[game.card.targetIndex],
         });
 
         console.log(`🔄 Started round ${game.currentRound} in ${code}`);
@@ -524,7 +634,7 @@ app.prepare().then(() => {
     console.log(`🏆 Game ended in ${code}. Winner: ${winner.name}`);
   }
 
-  function handlePlayerLeave(socket, code) {
+  function handlePlayerLeave(socket, code, explicitLeave = false) {
     const room = rooms[code];
     if (!room) return;
 
@@ -532,16 +642,20 @@ app.prepare().then(() => {
     if (playerIndex === -1) return;
 
     const player = room.players[playerIndex];
-    room.players.splice(playerIndex, 1);
+    
+    // Only actually remove if explicit leave or room is empty/no active game
+    if (explicitLeave || !room.currentGame) {
+      room.players.splice(playerIndex, 1);
+      socket.leave(code);
 
-    socket.leave(code);
+      if (room.players.length === 0) {
+        // Delete empty room
+        delete rooms[code];
+        delete chatMessages[code];
+        console.log(`🗑️ Room ${code} deleted (empty)`);
+        return;
+      }
 
-    if (room.players.length === 0) {
-      // Delete empty room
-      delete rooms[code];
-      delete chatMessages[code];
-      console.log(`🗑️ Room ${code} deleted (empty)`);
-    } else {
       // Reassign host if needed
       if (room.hostId === socket.id) {
         room.hostId = room.players[0].id;

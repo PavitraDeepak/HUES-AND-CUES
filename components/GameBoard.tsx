@@ -14,6 +14,8 @@ interface GameBoardProps {
   guessDeadline?: number;
   hasGuessed: boolean;
   myGuessIndex?: number;
+  targetColor?: string;
+  targetIndex?: number;
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({
@@ -29,6 +31,8 @@ const GameBoard: React.FC<GameBoardProps> = ({
   guessDeadline,
   hasGuessed,
   myGuessIndex,
+  targetColor,
+  targetIndex,
 }) => {
   const [clueInput, setClueInput] = useState('');
   const [selectedIndex, setSelectedIndex] = useState<number | null>(myGuessIndex ?? null);
@@ -84,20 +88,29 @@ const GameBoard: React.FC<GameBoardProps> = ({
           </div>
         </div>
 
-        {/* Card Colors */}
-        <div className="mb-4">
-          <p className="text-sm text-gray-300 mb-2">Card Colors:</p>
-          <div className="flex gap-2">
-            {cardColors.map((color, idx) => (
-              <div
-                key={idx}
-                className="w-16 h-16 rounded-lg shadow-lg border-2 border-white"
-                style={{ backgroundColor: color }}
-                title={color}
-              />
-            ))}
+        {/* Card Colors - Only visible to clue giver */}
+        {isClueGiver && (
+          <div className="mb-4">
+            <p className="text-sm text-gray-300 mb-2">Card Colors:</p>
+            <div className="flex gap-2">
+              {cardColors.map((color, idx) => (
+                <div
+                  key={idx}
+                  className={`w-16 h-16 rounded-lg shadow-lg border-2 ${
+                    targetIndex === idx ? 'border-yellow-400 border-4' : 'border-white'
+                  }`}
+                  style={{ backgroundColor: color }}
+                  title={targetIndex === idx ? `TARGET: ${color}` : color}
+                />
+              ))}
+            </div>
+            {targetColor && (
+              <p className="text-yellow-400 font-bold mt-2 text-sm">
+                🎯 Target Color: {targetColor}
+              </p>
+            )}
           </div>
-        </div>
+        )}
 
         {/* Clue Giver Section */}
         {isClueGiver && !clue && (
