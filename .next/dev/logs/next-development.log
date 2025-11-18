@@ -2,3 +2,7 @@
 [00:00:02.285] Server  LOG     ✅ MongoDB connected
 [00:00:09.141] Server  LOG      ○ Compiling / ...
 [00:00:35.571] Browser ERROR   ❌ Connection error: timeout
+[00:00:57.580] Browser ERROR   ❌ Connection error: timeout
+[00:01:20.572] Browser ERROR   ❌ Connection error: timeout
+[00:01:45.571] Browser ERROR   ❌ Connection error: timeout
+[00:03:21.575] Browser ERROR   ❌ Connection error: timeout
