@@ -228,9 +228,10 @@ app.prepare().then(() => {
           card: {
             colors: card.colors,
             indices: card.indices,
-            targetIndex: card.indices[Math.floor(Math.random() * 4)],
+            targetIndex: null, // Cuer must select
           },
-          guesses: {},
+          guesses: {}, // Will store { playerId: { cone1: index, cone2: index } }
+          currentPhaseGuesses: {}, // Track guesses for current phase
           roundHistory: [],
           startTime: Date.now(),
         };
@@ -244,17 +245,56 @@ app.prepare().then(() => {
         io.to(code).emit('game_started', {
           gameState: formatGameState(room.currentGame),
           clueGiver: room.players[0].name,
+          clueGiverId: room.players[0].id,
         });
         
-        // Send target info ONLY to clue giver
+        // Send target info ONLY to clue giver - REMOVED, Cuer must select
+        /*
         io.to(clueGiverId).emit('target_revealed', {
           targetIndex: room.currentGame.card.targetIndex,
           targetColor: COLORS[room.currentGame.card.targetIndex],
         });
+        */
         
         io.to(code).emit('room_state', formatRoomState(room));
         callback({ success: true });
         console.log(`🎯 Game started in room ${code}`);
+      } catch (error) {
+        callback({ success: false, error: error.message });
+      }
+    });
+
+    // SELECT TARGET COLOR
+    socket.on('select_target_color', ({ code, targetIndex }, callback) => {
+      try {
+        const room = rooms[code];
+        if (!room || !room.currentGame) {
+          return callback({ success: false, error: 'No active game' });
+        }
+
+        const game = room.currentGame;
+        const player = room.players.find((p) => p.id === socket.id);
+        const clueGiver = room.players[game.turnIndex];
+
+        if (player.id !== clueGiver.id) {
+          return callback({ success: false, error: 'Only clue giver can select target' });
+        }
+
+        // Validate index is one of the 4 card colors
+        if (targetIndex < 0 || targetIndex > 3) {
+           return callback({ success: false, error: 'Invalid color selection' });
+        }
+
+        game.card.targetIndex = game.card.indices[targetIndex];
+        
+        // Send confirmation to clue giver
+        io.to(socket.id).emit('target_revealed', {
+          targetIndex: game.card.targetIndex,
+          targetColor: COLORS[game.card.targetIndex],
+        });
+
+        callback({ success: true });
+        console.log(`🎯 Target selected in ${code} by ${player.name}`);
       } catch (error) {
         callback({ success: false, error: error.message });
       }
@@ -266,6 +306,12 @@ app.prepare().then(() => {
         const room = rooms[code];
         if (!room || !room.currentGame) {
           return callback({ success: false, error: 'No active game' });
+        }
+
+        const game = room.currentGame;
+        // Check if target is selected
+        if (game.card.targetIndex === undefined || game.card.targetIndex === null) {
+             return callback({ success: false, error: 'Please select a target color first' });
         }
 
         const clueGiver = room.players[room.currentGame.turnIndex];
@@ -284,7 +330,7 @@ app.prepare().then(() => {
         }
 
         room.currentGame.currentClue = clue;
-        room.currentGame.guesses = {};
+        room.currentGame.currentPhaseGuesses = {};
         room.currentGame.guessDeadline = Date.now() + 60000; // 60 seconds
 
         io.to(code).emit('clue_given', {
@@ -324,7 +370,17 @@ app.prepare().then(() => {
           return callback({ success: false, error: 'Clue giver cannot guess' });
         }
 
-        room.currentGame.guesses[socket.id] = {
+        const phase = room.currentGame.currentPhase;
+        const coneKey = phase === 1 ? 'cone1' : 'cone2';
+
+        // Initialize player guesses if not exists
+        if (!room.currentGame.guesses[socket.id]) {
+          room.currentGame.guesses[socket.id] = {};
+        }
+
+        // Store the guess for this phase
+        room.currentGame.guesses[socket.id][coneKey] = guessIndex;
+        room.currentGame.currentPhaseGuesses[socket.id] = {
           index: guessIndex,
           playerName: player.name,
           timestamp: Date.now(),
@@ -332,7 +388,8 @@ app.prepare().then(() => {
 
         io.to(code).emit('guess_placed', {
           playerName: player.name,
-          totalGuesses: Object.keys(room.currentGame.guesses).length,
+          phase,
+          totalGuesses: Object.keys(room.currentGame.currentPhaseGuesses).length,
           expectedGuesses: room.players.length - 1,
         });
 
@@ -340,11 +397,11 @@ app.prepare().then(() => {
 
         // Check if all players have guessed
         const expectedGuesses = room.players.length - 1;
-        if (Object.keys(room.currentGame.guesses).length === expectedGuesses) {
-          handleRoundEnd(code);
+        if (Object.keys(room.currentGame.currentPhaseGuesses).length === expectedGuesses) {
+          handlePhaseEnd(code);
         }
 
-        console.log(`🎯 ${player.name} placed guess at index ${guessIndex}`);
+        console.log(`🎯 ${player.name} placed cone ${phase} at index ${guessIndex}`);
       } catch (error) {
         callback({ success: false, error: error.message });
       }
@@ -477,8 +534,16 @@ app.prepare().then(() => {
     const center = Math.floor(COLORS.length / 2);
     room.players.forEach((player) => {
       const clueGiver = room.players[room.currentGame.turnIndex];
-      if (player.id !== clueGiver.id && !room.currentGame.guesses[player.id]) {
-        room.currentGame.guesses[player.id] = {
+      if (player.id !== clueGiver.id && !room.currentGame.currentPhaseGuesses[player.id]) {
+        const phase = room.currentGame.currentPhase;
+        const coneKey = phase === 1 ? 'cone1' : 'cone2';
+        
+        if (!room.currentGame.guesses[player.id]) {
+          room.currentGame.guesses[player.id] = {};
+        }
+        
+        room.currentGame.guesses[player.id][coneKey] = center;
+        room.currentGame.currentPhaseGuesses[player.id] = {
           index: center,
           playerName: player.name,
           timestamp: Date.now(),
@@ -487,7 +552,58 @@ app.prepare().then(() => {
       }
     });
 
-    handleRoundEnd(code);
+    handlePhaseEnd(code);
+  }
+
+  function handlePhaseEnd(code) {
+    const room = rooms[code];
+    if (!room || !room.currentGame) return;
+
+    const game = room.currentGame;
+    const phase = game.currentPhase;
+
+    // Show results for this phase but don't score yet
+    io.to(code).emit('phase_complete', {
+      phase,
+      guesses: game.currentPhaseGuesses,
+    });
+
+    // If this was phase 1, move to phase 2
+    if (phase === 1) {
+      setTimeout(() => {
+        advanceToNextPhase(code);
+      }, 3000); // 3 second pause between phases
+    } else {
+      // Phase 2 complete, calculate scores IMMEDIATELY
+      handleRoundEnd(code);
+    }
+  }
+
+  function advanceToNextPhase(code) {
+    const room = rooms[code];
+    if (!room || !room.currentGame) return;
+
+    const game = room.currentGame;
+    game.currentPhase = 2;
+    game.currentClue = null;
+    game.currentPhaseGuesses = {};
+
+    const clueGiverId = room.players[game.turnIndex].id;
+
+    io.to(code).emit('phase_changed', {
+      round: game.currentRound,
+      phase: 2,
+      clueGiver: room.players[game.turnIndex].name,
+      clueGiverId: room.players[game.turnIndex].id,
+    });
+    
+    // Send target to clue giver
+    io.to(clueGiverId).emit('target_revealed', {
+      targetIndex: game.card.targetIndex,
+      targetColor: COLORS[game.card.targetIndex],
+    });
+
+    console.log(`➡️ Advanced to phase 2 of round ${game.currentRound} in ${code}`);
   }
 
   function handleRoundEnd(code) {
@@ -497,32 +613,67 @@ app.prepare().then(() => {
     const game = room.currentGame;
     const targetIndex = game.card.targetIndex;
     const results = [];
+    let cuerPoints = 0;
 
-    // Calculate scores for each guess
-    for (const [socketId, guess] of Object.entries(game.guesses)) {
-      const distance = calculateDistance(guess.index, targetIndex);
-      const points = scoreForDistance(distance);
-
+    // Calculate scores for each player's TWO cones
+    for (const [socketId, cones] of Object.entries(game.guesses)) {
       const player = room.players.find((p) => p.id === socketId);
-      if (player) {
-        player.score += points;
-        results.push({
-          playerName: player.name,
-          guessIndex: guess.index,
-          distance: Math.round(distance * 10) / 10,
-          points,
-          autoGuess: guess.autoGuess || false,
+      if (!player) continue;
+
+      let totalPoints = 0;
+      const coneResults = [];
+
+      // Score cone 1
+      if (cones.cone1 !== undefined) {
+        const dist1 = calculateDistance(cones.cone1, targetIndex);
+        const points1 = scoreForDistance(dist1);
+        totalPoints += points1;
+        coneResults.push({
+          cone: 1,
+          index: cones.cone1,
+          points: points1,
+          distance: dist1,
         });
+        
+        // Cuer gets 1 point for each cone in the frame
+        if (points1 > 0) cuerPoints++;
       }
+
+      // Score cone 2
+      if (cones.cone2 !== undefined) {
+        const dist2 = calculateDistance(cones.cone2, targetIndex);
+        const points2 = scoreForDistance(dist2);
+        totalPoints += points2;
+        coneResults.push({
+          cone: 2,
+          index: cones.cone2,
+          points: points2,
+          distance: dist2,
+        });
+        
+        // Cuer gets 1 point for each cone in the frame
+        if (points2 > 0) cuerPoints++;
+      }
+
+      player.score += totalPoints;
+      results.push({
+        playerName: player.name,
+        cones: coneResults,
+        totalPoints,
+      });
     }
+
+    // Award points to cuer
+    const cuer = room.players[game.turnIndex];
+    cuer.score += cuerPoints;
 
     // Save round history
     game.roundHistory.push({
       round: game.currentRound,
-      phase: game.currentPhase,
-      clue: game.currentClue,
       targetIndex,
       results,
+      cuerPoints,
+      cuerName: cuer.name,
     });
 
     // Emit results
@@ -530,14 +681,15 @@ app.prepare().then(() => {
       targetIndex,
       targetColor: COLORS[targetIndex],
       results,
+      cuerPoints,
+      cuerName: cuer.name,
       scoreboard: room.players.map((p) => ({ name: p.name, score: p.score })),
-      phase: game.currentPhase,
       round: game.currentRound,
     });
 
     io.to(code).emit('room_state', formatRoomState(room));
 
-    console.log(`📊 Round ${game.currentRound}-${game.currentPhase} ended in ${code}`);
+    console.log(`📊 Round ${game.currentRound} ended in ${code}. Cuer earned ${cuerPoints} points`);
   }
 
   function advanceToNextRound(code) {
@@ -545,65 +697,43 @@ app.prepare().then(() => {
     if (!room || !room.currentGame) return;
 
     const game = room.currentGame;
+    game.currentRound++;
 
-    // Check if we need to move to phase 2 of current round
-    if (game.currentPhase === 1) {
-      game.currentPhase = 2;
+    if (game.currentRound > game.roundsTotal) {
+      // Game over
+      endGame(code);
+    } else {
+      // New round: new card, new clue giver
+      game.currentPhase = 1;
+      game.turnIndex = (game.turnIndex + 1) % room.players.length;
+      const card = sampleFour();
+      game.card = {
+        colors: card.colors,
+        indices: card.indices,
+        targetIndex: null, // Cuer must select
+      };
       game.currentClue = null;
       game.guesses = {};
+      game.currentPhaseGuesses = {};
 
       const clueGiverId = room.players[game.turnIndex].id;
 
-      io.to(code).emit('phase_changed', {
+      io.to(code).emit('new_round', {
         round: game.currentRound,
-        phase: 2,
+        cardColors: game.card.colors,
         clueGiver: room.players[game.turnIndex].name,
+        clueGiverId: room.players[game.turnIndex].id,
       });
       
-      // Send target to clue giver
+      // Send target to new clue giver - REMOVED
+      /*
       io.to(clueGiverId).emit('target_revealed', {
         targetIndex: game.card.targetIndex,
         targetColor: COLORS[game.card.targetIndex],
       });
+      */
 
-      console.log(`➡️ Advanced to phase 2 of round ${game.currentRound} in ${code}`);
-    }
-    // Move to next round
-    else {
-      game.currentRound++;
-
-      if (game.currentRound > game.roundsTotal) {
-        // Game over
-        endGame(code);
-      } else {
-        // New round: new card, new clue giver
-        game.currentPhase = 1;
-        game.turnIndex = (game.turnIndex + 1) % room.players.length;
-        const card = sampleFour();
-        game.card = {
-          colors: card.colors,
-          indices: card.indices,
-          targetIndex: card.indices[Math.floor(Math.random() * 4)],
-        };
-        game.currentClue = null;
-        game.guesses = {};
-
-        const clueGiverId = room.players[game.turnIndex].id;
-
-        io.to(code).emit('new_round', {
-          round: game.currentRound,
-          cardColors: game.card.colors,
-          clueGiver: room.players[game.turnIndex].name,
-        });
-        
-        // Send target to new clue giver
-        io.to(clueGiverId).emit('target_revealed', {
-          targetIndex: game.card.targetIndex,
-          targetColor: COLORS[game.card.targetIndex],
-        });
-
-        console.log(`🔄 Started round ${game.currentRound} in ${code}`);
-      }
+      console.log(`🔄 Started round ${game.currentRound} in ${code}`);
     }
   }
 

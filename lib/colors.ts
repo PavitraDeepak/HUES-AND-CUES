@@ -56,20 +56,54 @@ export function idxToXY(index: number): { x: number; y: number } {
   };
 }
 
-// Calculate Euclidean distance between two indices
-export function calculateDistance(idx1: number, idx2: number): number {
-  const pos1 = idxToXY(idx1);
-  const pos2 = idxToXY(idx2);
-  return Math.sqrt(Math.pow(pos1.x - pos2.x, 2) + Math.pow(pos1.y - pos2.y, 2));
+// Calculate grid distance between two indices
+export interface DistanceResult {
+  rowDist: number;
+  colDist: number;
+  maxDist: number;
 }
 
-// Calculate score based on distance
-export function scoreForDistance(distance: number): number {
-  const maxDistance = Math.sqrt(
-    Math.pow(GRID_COLS - 1, 2) + Math.pow(GRID_ROWS - 1, 2)
-  );
-  const normalized = Math.max(0, 1 - distance / maxDistance);
-  return Math.round(normalized * 100);
+export function calculateDistance(idx1: number, idx2: number): DistanceResult {
+  const pos1 = idxToXY(idx1);
+  const pos2 = idxToXY(idx2);
+  
+  const rowDist = Math.abs(pos1.y - pos2.y);
+  const colDist = Math.abs(pos1.x - pos2.x);
+  
+  return {
+    rowDist,
+    colDist,
+    maxDist: Math.max(rowDist, colDist),
+  };
+}
+
+// Calculate score based on proximity to target
+// 3 points: Bullseye (exact match)
+// 2 points: Inner Ring (8 adjacent squares)
+// 1 point: Outer Ring (16 squares in outer frame)
+// 0 points: Miss (outside scoring frame)
+export function scoreForDistance(distanceObj: DistanceResult): number {
+  const { rowDist, colDist } = distanceObj;
+  
+  // Bullseye: Exact match
+  if (rowDist === 0 && colDist === 0) return 3;
+  
+  // Inner Ring: Adjacent (within ±1)
+  if (rowDist <= 1 && colDist <= 1) return 2;
+  
+  // Outer Ring: Within ±2
+  if (rowDist <= 2 && colDist <= 2) return 1;
+  
+  // Miss: Outside the frame
+  return 0;
+}
+
+// Get coordinate notation (e.g., "A-4", "H-9")
+export function getCoordinate(index: number): string {
+  const row = Math.floor(index / GRID_COLS);
+  const col = index % GRID_COLS;
+  const letter = String.fromCharCode(65 + row); // A, B, C, etc.
+  return `${letter}-${col + 1}`;
 }
 
 // Get color name/description (simple hue-based)

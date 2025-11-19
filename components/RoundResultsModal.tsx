@@ -37,51 +37,55 @@ const RoundResultsModal: React.FC<RoundResultsModalProps> = ({
   const sortedResults = [...results].sort((a, b) => b.points - a.points);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <h2 className="text-3xl font-bold text-white mb-6 text-center">
-            Round {round} - Phase {phase} Results
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+      <div className="bg-[#2a2a2a] border border-[#333] rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="p-8">
+          <h2 className="text-4xl font-bold text-white mb-8 text-center tracking-tight">
+            Round {round} <span className="text-[#00d9ff]">•</span> Phase {phase}
           </h2>
 
           {/* Target Color */}
-          <div className="mb-6 text-center">
-            <p className="text-gray-300 mb-2">Target Color:</p>
-            <div className="inline-block">
+          <div className="mb-10 text-center">
+            <p className="text-gray-400 mb-3 text-sm uppercase tracking-widest font-bold">TARGET COLOR</p>
+            <div className="inline-block relative group">
               <div
-                className="w-32 h-32 rounded-lg shadow-lg border-4 border-yellow-400 mx-auto"
+                className="w-32 h-32 rounded-2xl shadow-[0_0_30px_rgba(0,0,0,0.5)] border-4 border-white mx-auto transition-transform transform group-hover:scale-105"
                 style={{ backgroundColor: targetColor }}
               />
-              <p className="text-sm text-gray-400 mt-2">{targetColor}</p>
+              <div className="absolute -top-3 -right-3 bg-[#00d9ff] text-black font-bold w-8 h-8 rounded-full flex items-center justify-center shadow-lg">
+                🎯
+              </div>
             </div>
           </div>
 
           {/* Results Table */}
-          <div className="mb-6">
-            <h3 className="text-xl font-bold text-white mb-3">Guesses:</h3>
-            <div className="space-y-2">
+          <div className="mb-10">
+            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <span>📊</span> Round Results
+            </h3>
+            <div className="space-y-3">
               {sortedResults.map((result, idx) => (
                 <div
                   key={idx}
-                  className="bg-gray-700 p-4 rounded-lg flex items-center justify-between"
+                  className="bg-[#1e1e1e] p-4 rounded-xl flex items-center justify-between border border-[#333] hover:border-[#00d9ff]/30 transition-colors"
                 >
                   <div className="flex items-center gap-4 flex-1">
-                    <div className="text-2xl font-bold text-gray-400">
+                    <div className="text-2xl font-bold text-gray-500 w-8">
                       #{idx + 1}
                     </div>
                     <div
-                      className="w-12 h-12 rounded border-2 border-white"
+                      className="w-12 h-12 rounded-lg border-2 border-white/20 shadow-sm"
                       style={{ backgroundColor: COLORS[result.guessIndex] }}
                     />
                     <div>
-                      <p className="text-white font-bold">{result.playerName}</p>
-                      <p className="text-sm text-gray-400">
+                      <p className="text-white font-bold text-lg">{result.playerName}</p>
+                      <p className="text-xs text-gray-400 uppercase tracking-wider">
                         Distance: {result.distance}
                         {result.autoGuess && ' (auto)'}
                       </p>
                     </div>
                   </div>
-                  <div className="text-2xl font-bold text-yellow-400">
+                  <div className="text-3xl font-bold text-[#00d9ff] drop-shadow-[0_0_10px_rgba(0,217,255,0.3)]">
                     +{result.points}
                   </div>
                 </div>
@@ -90,21 +94,26 @@ const RoundResultsModal: React.FC<RoundResultsModalProps> = ({
           </div>
 
           {/* Scoreboard */}
-          <div className="mb-6">
-            <h3 className="text-xl font-bold text-white mb-3">Scoreboard:</h3>
-            <div className="bg-gray-700 rounded-lg p-4">
+          <div className="mb-8">
+            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <span>🏆</span> Leaderboard
+            </h3>
+            <div className="bg-[#1e1e1e] rounded-xl p-4 border border-[#333]">
               {scoreboard
                 .sort((a, b) => b.score - a.score)
                 .map((player, idx) => (
                   <div
                     key={idx}
-                    className="flex justify-between items-center py-2 border-b border-gray-600 last:border-0"
+                    className="flex justify-between items-center py-3 border-b border-[#333] last:border-0"
                   >
-                    <span className="text-white font-medium">
-                      {idx + 1}. {player.name}
+                    <span className="text-white font-medium flex items-center gap-3">
+                      <span className={`text-sm font-bold w-6 ${idx < 3 ? 'text-yellow-400' : 'text-gray-600'}`}>
+                        {idx + 1}.
+                      </span>
+                      {player.name}
                     </span>
-                    <span className="text-yellow-400 font-bold text-lg">
-                      {player.score}
+                    <span className="text-white font-bold text-lg">
+                      {player.score} <span className="text-xs text-gray-500 font-normal">pts</span>
                     </span>
                   </div>
                 ))}
@@ -115,15 +124,15 @@ const RoundResultsModal: React.FC<RoundResultsModalProps> = ({
           {isHost && (
             <button
               onClick={onNext}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-lg font-bold text-lg transition-colors"
+              className="btn-primary w-full py-4 text-xl shadow-lg"
             >
-              Continue to Next Round
+              Continue to Next Round →
             </button>
           )}
           {!isHost && (
-            <p className="text-center text-gray-400">
+            <div className="text-center p-4 bg-[#1e1e1e] rounded-xl border border-[#333] text-gray-400 animate-pulse">
               Waiting for host to continue...
-            </p>
+            </div>
           )}
         </div>
       </div>

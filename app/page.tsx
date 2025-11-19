@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSocket } from '@/lib/useSocket';
+import HowToPlayModal from '@/components/HowToPlayModal';
 
 export default function Home() {
   const router = useRouter();
@@ -14,6 +15,8 @@ export default function Home() {
   const [isPrivate, setIsPrivate] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<'create' | 'join'>('join');
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
 
   // Load saved name from localStorage
   useEffect(() => {
@@ -97,182 +100,165 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
-      <div className="max-w-4xl w-full">
+    <div className="min-h-screen bg-[#1e1e1e] flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Abstract background elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#00d9ff]/5 rounded-full blur-[120px] animate-float" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#00d9ff]/5 rounded-full blur-[120px] animate-float" style={{ animationDelay: '2s' }} />
+      </div>
+
+      <div className="max-w-md w-full relative z-10 animate-fade-in">
         {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-6xl font-bold text-white mb-4">
-            🎨 Hues & Cues
+        <div className="text-center mb-10">
+          <h1 className="text-6xl font-extrabold text-white mb-2 tracking-tighter">
+            HUES <span className="text-[#00d9ff]">&</span> CUES
           </h1>
-          <p className="text-xl text-gray-300">
-            Multiplayer color guessing game - Play with friends!
+          <p className="text-gray-400 text-lg">
+            The ultimate color guessing game
           </p>
+          
           <div className="mt-4 flex justify-center items-center gap-2">
-            <div
-              className={`w-3 h-3 rounded-full ${
-                isConnected ? 'bg-green-500' : 'bg-red-500'
-              }`}
-            />
-            <span className="text-sm text-gray-300">
-              {isConnected ? 'Connected' : 'Connecting...'}
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-[#10b981]' : 'bg-red-500'}`} />
+            <span className="text-xs text-gray-500 uppercase tracking-widest">
+              {isConnected ? 'Server Online' : 'Connecting...'}
             </span>
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Create Room */}
-          <div className="bg-gray-800 rounded-lg p-8 shadow-2xl">
-            <h2 className="text-3xl font-bold text-white mb-6">Create Room</h2>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Your Name
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your name"
-                  className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  maxLength={20}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Max Players: {maxPlayers}
-                </label>
-                <input
-                  type="range"
-                  min="2"
-                  max="12"
-                  value={maxPlayers}
-                  onChange={(e) => setMaxPlayers(Number(e.target.value))}
-                  className="w-full"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Number of Rounds: {rounds}
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  value={rounds}
-                  onChange={(e) => setRounds(Number(e.target.value))}
-                  className="w-full"
-                />
-              </div>
-
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="private"
-                  checked={isPrivate}
-                  onChange={(e) => setIsPrivate(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                />
-                <label
-                  htmlFor="private"
-                  className="ml-2 text-sm text-gray-300"
-                >
-                  Private Room (invite only)
-                </label>
-              </div>
-
-              <button
-                onClick={handleCreateRoom}
-                disabled={!isConnected || loading}
-                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white px-6 py-4 rounded-lg font-bold text-lg transition-all shadow-lg"
-              >
-                {loading ? 'Creating...' : 'Create Room'}
-              </button>
-            </div>
+        {/* Main Card */}
+        <div className="bg-[#2a2a2a] border border-[#333] rounded-2xl p-8 shadow-2xl">
+          {/* Name Input */}
+          <div className="mb-8">
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 ml-1">
+              Your Nickname
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Enter nickname..."
+              className="input-field w-full text-center text-xl py-4 font-bold"
+              maxLength={12}
+            />
           </div>
 
-          {/* Join Room */}
-          <div className="bg-gray-800 rounded-lg p-8 shadow-2xl">
-            <h2 className="text-3xl font-bold text-white mb-6">Join Room</h2>
+          {/* Tabs */}
+          <div className="bg-[#1e1e1e] p-1 rounded-xl flex mb-8 border border-[#333]">
+            <button
+              onClick={() => setMode('join')}
+              className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all ${
+                mode === 'join' 
+                  ? 'bg-[#2a2a2a] text-white shadow-lg border border-[#333]' 
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              Join Room
+            </button>
+            <button
+              onClick={() => setMode('create')}
+              className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all ${
+                mode === 'create' 
+                  ? 'bg-[#2a2a2a] text-white shadow-lg border border-[#333]' 
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              Create Room
+            </button>
+          </div>
 
-            <div className="space-y-4">
+          {/* Join Mode */}
+          {mode === 'join' && (
+            <div className="space-y-6 animate-slide-up">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Your Name
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your name"
-                  className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  maxLength={20}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 ml-1">
                   Room Code
                 </label>
                 <input
                   type="text"
                   value={roomCode}
                   onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                  placeholder="Enter 6-character code"
-                  className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 uppercase font-mono text-lg"
+                  placeholder="ABCD"
+                  className="input-field w-full text-center text-2xl font-mono tracking-[0.5em] uppercase py-4"
                   maxLength={6}
                 />
               </div>
-
               <button
                 onClick={handleJoinRoom}
-                disabled={!isConnected || loading}
-                className="w-full bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white px-6 py-4 rounded-lg font-bold text-lg transition-all shadow-lg"
+                disabled={!isConnected || loading || !name || !roomCode}
+                className="btn-primary w-full py-4 text-lg shadow-[0_0_20px_rgba(0,217,255,0.2)]"
               >
-                {loading ? 'Joining...' : 'Join Room'}
+                {loading ? 'Joining...' : 'Join Game'}
               </button>
             </div>
-          </div>
+          )}
+
+          {/* Create Mode */}
+          {mode === 'create' && (
+            <div className="space-y-6 animate-slide-up">
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Max Players</label>
+                    <span className="text-[#00d9ff] font-bold">{maxPlayers}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="2"
+                    max="10"
+                    value={maxPlayers}
+                    onChange={(e) => setMaxPlayers(Number(e.target.value))}
+                    className="w-full accent-[#00d9ff]"
+                  />
+                </div>
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Rounds</label>
+                    <span className="text-[#00d9ff] font-bold">{rounds}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="5"
+                    value={rounds}
+                    onChange={(e) => setRounds(Number(e.target.value))}
+                    className="w-full accent-[#00d9ff]"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={handleCreateRoom}
+                disabled={!isConnected || loading || !name}
+                className="btn-primary w-full py-4 text-lg shadow-[0_0_20px_rgba(0,217,255,0.2)]"
+              >
+                {loading ? 'Creating...' : 'Create New Room'}
+              </button>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {error && (
+            <div className="mt-6 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm text-center animate-shake">
+              {error}
+            </div>
+          )}
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="mt-6 bg-red-900 border-2 border-red-500 text-white px-6 py-4 rounded-lg text-center">
-            {error}
-          </div>
-        )}
-
-        {/* How to Play */}
-        <div className="mt-12 bg-gray-800 rounded-lg p-8 shadow-2xl">
-          <h3 className="text-2xl font-bold text-white mb-4">How to Play</h3>
-          <div className="space-y-2 text-gray-300">
-            <p>
-              <strong className="text-white">1.</strong> One player is the{' '}
-              <strong className="text-yellow-400">Clue Giver</strong> each round
-            </p>
-            <p>
-              <strong className="text-white">2.</strong> The Clue Giver sees 4 colors and picks one as the target
-            </p>
-            <p>
-              <strong className="text-white">3.</strong> Round 1: Give a{' '}
-              <strong className="text-blue-400">ONE-word</strong> clue
-            </p>
-            <p>
-              <strong className="text-white">4.</strong> All players guess by clicking a color on the 480-color grid
-            </p>
-            <p>
-              <strong className="text-white">5.</strong> Round 2: Give a{' '}
-              <strong className="text-purple-400">TWO-word</strong> clue
-            </p>
-            <p>
-              <strong className="text-white">6.</strong> Closer guesses = more points!
-            </p>
-          </div>
+        {/* Footer Links */}
+        <div className="mt-8 text-center">
+          <button 
+            onClick={() => setShowHowToPlay(true)}
+            className="text-gray-500 hover:text-white text-sm font-medium transition-colors flex items-center justify-center gap-2 mx-auto"
+          >
+            <span>📖</span> How to Play
+          </button>
         </div>
       </div>
+
+      {/* How to Play Modal */}
+      <HowToPlayModal 
+        isOpen={showHowToPlay} 
+        onClose={() => setShowHowToPlay(false)} 
+      />
     </div>
   );
 }

@@ -1,38 +1,12 @@
-[00:00:01.622] Server  LOG     🚀 Server running on http://localhost:3005
-[00:00:01.659] Server  LOG     🔌 User connected: 0MvjN17y1_cE4IkQAAAB
-[00:00:02.159] Server  LOG     ✅ MongoDB connected
-[00:00:59.806] Browser LOG     ❌ Disconnected from server: transport close
-[00:00:59.806] Browser LOG     ✅ Connected to server: 0MvjN17y1_cE4IkQAAAB
-[00:01:02.222] Server  LOG      ○ Compiling /room/[code] ...
-[00:01:02.428] Server  LOG     🔌 User disconnected: 0MvjN17y1_cE4IkQAAAB
-[00:01:04.347] Server  LOG     🔌 User connected: opEEngUuT9fo7zFGAAAD
-[00:01:04.771] Server  LOG     🔌 User connected: dZN7TwgUMGudXvzvAAAF
-[00:01:04.812] Browser LOG     ✅ Connected to server: opEEngUuT9fo7zFGAAAD
-[00:01:25.086] Browser LOG     ✅ Connected to server: dZN7TwgUMGudXvzvAAAF
-[00:01:25.086] Browser ERROR   Failed to get room state: Room not found
-[00:01:29.242] Server  LOG     🎮 Room created: M1I14U by Kiraa
-[00:01:39.386] Server  LOG     👤 Pavii joined room M1I14U
-[00:01:39.627] Server  LOG     🔄 Pavii reconnected to room M1I14U
-[00:01:52.336] Server  LOG     🎯 Game started in room M1I14U
-[00:02:37.516] Server  LOG     💬 Clue given in M1I14U: "grasshopper" by Kiraa
-[00:03:30.434] Server  LOG     📊 Round 1-1 ended in M1I14U
-[00:03:30.434] Server  LOG     🎯 Pavii placed guess at index 199
-[00:03:37.533] Server  LOG     📊 Round 1-1 ended in M1I14U
-[00:03:45.009] Server  LOG     ➡️ Advanced to phase 2 of round 1 in M1I14U
-[00:08:29.446] Server  LOG      ✓ Compiled in 113ms
-[00:08:29.824] Server  LOG      ✓ Compiled in 295ms
-[00:08:30.779] Server  LOG     🔄 Kiraa reconnected to room M1I14U
-[00:08:30.781] Server  LOG     🔄 Pavii reconnected to room M1I14U
-[00:09:55.084] Server  LOG     💬 Clue given in M1I14U: "car sky" by Kiraa
-[00:10:06.703] Server  LOG     📊 Round 1-2 ended in M1I14U
-[00:10:06.703] Server  LOG     🎯 Pavii placed guess at index 157
-[00:10:13.401] Server  LOG     🔄 Started round 2 in M1I14U
-[00:10:26.978] Server  LOG     💬 Clue given in M1I14U: "mcqueen" by Pavii
-[00:10:32.451] Server  LOG     📊 Round 2-1 ended in M1I14U
-[00:10:32.451] Server  LOG     🎯 Kiraa placed guess at index 145
-[00:10:37.505] Server  LOG     ➡️ Advanced to phase 2 of round 2 in M1I14U
-[00:11:15.046] Server  LOG      ✓ Compiled in 99ms
-[00:12:02.376] Server  LOG     💬 Clue given in M1I14U: "tree grass" by Pavii
-[00:12:15.555] Server  LOG     📊 Round 2-2 ended in M1I14U
-[00:12:15.555] Server  LOG     🎯 Kiraa placed guess at index 177
-[00:12:17.862] Server  LOG     🔄 Started round 3 in M1I14U
+[00:00:09.677] Browser LOG     ✅ Connected to server: sNtlWD8qeeJ6R20WAAAB
+[00:00:10.492] Browser LOG     ✅ Connected to server: hoRoTQHihT-kDrs_AAAD
+[00:03:26.320] Browser LOG     ✅ Connected to server: 5nsQr3nGe705qGgZAAAF
+[01:51:54.238] Browser LOG     ❌ Disconnected from server: transport close
+[01:51:54.511] Browser LOG     ❌ Disconnected from server: transport close
+[01:51:54.897] Browser LOG     ✅ Connected to server: zJSgyEQY5Uj-Jf1vAAAI
+[01:51:55.349] Browser LOG     ✅ Connected to server: _Q3rt_hc1blS0N52AAAJ
+[02:01:14.160] Browser LOG     ✅ Connected to server: C2SQiqgQl0GghkwJAAAL
+[02:01:18.161] Browser LOG     ✅ Connected to server: XpwDoQOX0Tu4B_3SAAAN
+[02:12:11.062] Browser LOG     ✅ Connected to server: -zbeQJj9QeusDzinAAAP
+[02:12:13.453] Browser LOG     ✅ Connected to server: 0dnxsUiGdUlkSdBqAAAR
+[02:12:22.637] Browser ERROR   uncaughtError: ReferenceError: onSelectTarget is not defined
